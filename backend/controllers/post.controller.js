@@ -240,4 +240,4 @@ export const getUserPosts = async (req, res) => {
         res.status(500).json({ error: "Internal Server error" });
     }
    
-}
+};
