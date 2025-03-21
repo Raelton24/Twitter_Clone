@@ -2,7 +2,6 @@ import User from "../models/user.model.js";
 import Post from "../models/post.model.js";
 import { v2 as cloudinary } from "cloudinary";
 import Notification from "../models/notification.model.js";
-import { populate } from "dotenv";
 
 export const createPost = async (req, res) => {
   try {
@@ -110,7 +109,10 @@ export const likeUnlikePost = async (req, res) => {
       // Unliking the post
       await Post.updateOne({ _id: postId }, { $pull: { like: userId } });
       await User.updateOne({ _id: userId }, { $pull: { likedPosts: postId } });
-      res.status(200).json({ message: "Post unliked successfully" });
+
+      const updatedLikes = post.like.filter((id) => id.toString() !== userId.toString());
+ 
+      res.status(200).json(updatedLikes);
     } else {
       // Liking the post
       post.like.push(userId);
@@ -124,7 +126,8 @@ export const likeUnlikePost = async (req, res) => {
       });
       await notification.save();
 
-      res.status(200).json({ message: "Post liked successfully" });
+      const updatedLikes = post.like;
+      res.status(200).json(updatedLikes);
     }
   } catch (error) {
     console.log("Error in likeUnlikePost controller: ", error);
