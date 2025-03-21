@@ -8,11 +8,17 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import LoadingSpinner from "./LoadingSpinner";
+import { formatPostDate } from "../../utils/date";
 
 const Post = ({ post }) => {
 	const [comment, setComment] = useState("");
 	const { data: authUser } = useQuery({ queryKey: ["authUser"] });
 	const queryClient = useQueryClient();
+
+	const postOwner = post.user;
+	const isLiked = post.like.includes(authUser._id);
+
+	const isMyPost = authUser._id === post.user._id
 
 	const { mutate: deletePost, isPending: isDeleting } = useMutation({
 		mutationFn: async () => {
@@ -55,6 +61,8 @@ const Post = ({ post }) => {
 			}
 		},
 		onSuccess: (updatedLikes) => {
+
+			//update the catch directly for the post
 			queryClient.setQueryData(["posts"], (oldData) => {
 				return oldData.map(p => {
 					if(p._id === post._id){
@@ -68,22 +76,61 @@ const Post = ({ post }) => {
 			toast.error(error.message)
 		}
 	});
+	
+	const { mutate: commentPost, isPending: isCommenting } = useMutation({
+		mutationFn: async () => {
+			try {
+				const res = await fetch(`/api/posts/comment/${post._id}`, {
+					method: "POST",
+					headers: {
+						"content-Type": "application/json",
+					},
+					body: JSON.stringify({text: comment }),
+				})
+				const data = await res.json();
 
-	const postOwner = post.user;
-	const isLiked = post.like.includes(authUser._id);
+				if(!res.ok) {
+					throw new Error(data.error || "Something went wrong");
+				}
+				return data;
+			} catch (error) {
+				throw new Error(error);
+			}
+		},
+		onSuccess: (newComment) => {
+			setComment(""); // Clear input field
 
-	const isMyPost = authUser._id === post.user._id
-
-	const formattedDate = "1h";
-
-	const isCommenting = false;
-
+			document.getElementById(`comments_modal${post._id}`).close();
+		
+			// Update only the post that was commented on
+			queryClient.setQueryData(["posts"], (oldPosts) => {
+				if (!oldPosts) return [];
+		
+				return oldPosts.map((p) => {
+					if (p._id === post._id) {
+						return { ...p, comment: [...p.comment, newComment] };
+					}
+					return p;
+				});
+			});
+			
+			
+		},
+		onError: (error) => {
+			toast.error(error.message);
+		}
+	})
+	
+	const formattedDate = formatPostDate(post.createdAt);
+	
 	const handleDeletePost = () => {
 		deletePost();
 	};
 
 	const handlePostComment = (e) => {
 		e.preventDefault();
+		if (isCommenting) return;
+		commentPost();
 	};
 
 	const handleLikePost = () => {

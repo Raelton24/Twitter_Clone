@@ -63,16 +63,13 @@ export const deletePost = async (req, res) => {
 };
 
 export const commentOnPost = async (req, res) => {
-  // console.log("commentOnPost route was hit!"); // Debugging line
   try {
     const { text } = req.body;
     const postId = req.params.id;
     const userId = req.user._id;
 
-    // console.log("User in request:", req.user); // Debugging line
-
     if (!text) {
-      return res.status(400).json({ error: "text field is required" });
+      return res.status(400).json({ error: "Text field is required" });
     }
 
     const post = await Post.findById(postId);
@@ -81,16 +78,31 @@ export const commentOnPost = async (req, res) => {
     }
 
     const comment = { user: userId, text };
-
     post.comment.push(comment);
     await post.save();
 
-    res.status(200).json(post);
+    // Fetch the updated post with populated comments
+    const updatedPost = await Post.findById(postId)
+      .populate({
+        path: "user",
+        select: "-password",
+      })
+      .populate({
+        path: "comment.user",
+        select: "-password",
+      })
+      .populate({
+        path: "comment.user",
+        select: "-email",
+      });
+
+    res.status(200).json(updatedPost); // Send the updated post back
   } catch (error) {
     console.error("Error in commentOnPost controller:", error);
     res.status(500).json({ error: "Server error" });
   }
 };
+
 
 export const likeUnlikePost = async (req, res) => {
   try {
